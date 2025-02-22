@@ -8,11 +8,6 @@ document.querySelector<HTMLDivElement>("#app")!.innerHTML = `
   <div class="canvas-container" id="canvasContainer"></div>
 `;
 
-// const sourceCanvas = createSourceCanvas(
-//   document.querySelector<HTMLDivElement>("#app")!,
-//   CANVAS_SIZE
-// );
-
 const sourceCanvas = createOffscreenSourceCanvas(CANVAS_SIZE);
 
 // Create and setup worker

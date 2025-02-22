@@ -6,6 +6,7 @@ let camera: THREE.PerspectiveCamera;
 let objects: THREE.Mesh[] = [];
 let numCanvases: number;
 let canvas: OffscreenCanvas;
+let bitmaps: ImageBitmap[] = [];
 
 function initScene(canvas: OffscreenCanvas) {
   // Initialize renderer
@@ -41,15 +42,15 @@ function initScene(canvas: OffscreenCanvas) {
   }
 }
 
-function render(contextIndex: number = 0) {
-  objects[contextIndex].visible = true;
-  objects[contextIndex].rotation.x += 0.01;
-  objects[contextIndex].rotation.y += 0.01;
+function render() {
+  objects[0].visible = true;
+  objects[0].rotation.x += 0.01;
+  objects[0].rotation.y += 0.01;
   renderer.render(scene, camera);
-  objects[contextIndex].visible = false;
+  objects[0].visible = false;
 }
 
-self.onmessage = (e) => {
+self.onmessage = async (e) => {
   const { type, data } = e.data;
 
   switch (type) {
@@ -60,12 +61,14 @@ self.onmessage = (e) => {
       break;
     case "requestFrame":
       if (!canvas) return;
-      render(data.contextIndex);
-      const bitmap = canvas.transferToImageBitmap();
-      self.postMessage(
-        { bitmap, contextIndex: data.contextIndex },
-        { transfer: [bitmap] }
-      );
+      render();
+      bitmaps[0] = canvas.transferToImageBitmap();
+
+      for (let i = 1; i < numCanvases; i++) {
+        bitmaps[i] = await createImageBitmap(bitmaps[0]);
+      }
+
+      self.postMessage({ bitmaps }, { transfer: bitmaps });
       break;
   }
 };

@@ -18,19 +18,7 @@ const worker = new Worker(
   }
 );
 
-worker.postMessage(
-  {
-    type: "init",
-    data: {
-      canvas: sourceCanvas,
-      size: CANVAS_SIZE,
-      numCanvases: NUM_CANVASES,
-    },
-  },
-  [sourceCanvas]
-);
-
-const { contexts } = createTargetCanvas(
+const { canvases } = createTargetCanvas(
   document.querySelector<HTMLDivElement>("#canvasContainer")!,
   CANVAS_SIZE,
   NUM_CANVASES
@@ -44,12 +32,22 @@ function render() {
 // Start rendering
 render();
 
-worker.onmessage = async (e) => {
-  const { bitmaps } = e.data;
-  contexts.forEach((context, index) => {
-    context.transferFromImageBitmap(bitmaps[index]);
-  });
-};
+const offscreenCanvases = canvases.map((c) =>
+  (c as HTMLCanvasElement).transferControlToOffscreen()
+);
+
+worker.postMessage(
+  {
+    type: "init",
+    data: {
+      canvas: sourceCanvas,
+      size: CANVAS_SIZE,
+      numCanvases: NUM_CANVASES,
+      targetCanvases: offscreenCanvases,
+    },
+  },
+  [sourceCanvas, ...offscreenCanvases]
+);
 
 export function createTargetCanvas(
   container: HTMLDivElement,
@@ -57,7 +55,6 @@ export function createTargetCanvas(
   numCanvases: number
 ) {
   const canvases = [];
-  const contexts = [];
 
   for (let i = 0; i < numCanvases; i++) {
     const wrapper = document.createElement("div");
@@ -69,17 +66,11 @@ export function createTargetCanvas(
     canvas.style.width = `${size / window.devicePixelRatio}px`;
     canvas.style.height = `${size / window.devicePixelRatio}px`;
 
-    const context = canvas.getContext("bitmaprenderer");
-    if (!context) {
-      throw new Error("Failed to create 2D context");
-    }
-
     wrapper.appendChild(canvas);
     container.appendChild(wrapper);
 
     canvases.push(canvas);
-    contexts.push(context);
   }
 
-  return { canvases, contexts };
+  return { canvases } as const;
 }

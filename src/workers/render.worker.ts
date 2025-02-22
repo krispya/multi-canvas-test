@@ -6,7 +6,8 @@ let camera: THREE.PerspectiveCamera;
 let objects: THREE.Mesh[] = [];
 let numCanvases: number;
 let canvas: OffscreenCanvas;
-let bitmaps: ImageBitmap[] = [];
+let targetCanvases: OffscreenCanvas[] = [];
+let contexts: ImageBitmapRenderingContext[] = [];
 
 function initScene(canvas: OffscreenCanvas) {
   // Initialize renderer
@@ -20,6 +21,7 @@ function initScene(canvas: OffscreenCanvas) {
   scene = new THREE.Scene();
   camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000);
   camera.position.z = 1;
+  scene.background = new THREE.Color(0x222222);
 
   const light = new THREE.DirectionalLight(0xffffff, 1);
   light.position.set(1, 1, 1);
@@ -40,6 +42,17 @@ function initScene(canvas: OffscreenCanvas) {
     scene.add(object);
     objects.push(object);
   }
+
+  targetCanvases.forEach((c) => {
+    const context = c.getContext("bitmaprenderer", {
+      alpha: false,
+      desynchronized: true,
+    });
+    if (!context) {
+      throw new Error("Failed to create 2D context");
+    }
+    contexts.push(context);
+  });
 }
 
 function render() {
@@ -57,18 +70,23 @@ self.onmessage = async (e) => {
     case "init":
       canvas = data.canvas;
       numCanvases = data.numCanvases;
+      targetCanvases = data.targetCanvases;
       initScene(canvas);
       break;
     case "requestFrame":
       if (!canvas) return;
       render();
-      bitmaps[0] = canvas.transferToImageBitmap();
 
-      for (let i = 1; i < numCanvases; i++) {
-        bitmaps[i] = await createImageBitmap(bitmaps[0]);
-      }
+      // Create one bitmap and clone it for each context
+      const sourceBitmap = canvas.transferToImageBitmap();
+      const transferPromises = contexts.map(async (context) => {
+        const clonedBitmap = await createImageBitmap(sourceBitmap);
+        context.transferFromImageBitmap(clonedBitmap);
+      });
 
-      self.postMessage({ bitmaps }, { transfer: bitmaps });
+      // Wait for all transfers to complete
+      await Promise.all(transferPromises);
+      sourceBitmap.close();
       break;
   }
 };

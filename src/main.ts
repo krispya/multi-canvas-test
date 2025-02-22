@@ -43,17 +43,28 @@ const { contexts } = createTargetCanvas(
 
 function render() {
   requestAnimationFrame(render);
-  contexts.forEach((_, index) => {
-    worker.postMessage({ type: "requestFrame", data: { contextIndex: index } });
-  });
+  worker.postMessage({ type: "requestFrame" });
 }
 
 // Start rendering
+worker.postMessage({ type: "render" });
 render();
 
 worker.onmessage = async (e) => {
-  const { bitmap, contextIndex } = e.data;
-  contexts[contextIndex].transferFromImageBitmap(bitmap);
+  const { bitmap } = e.data;
+
+  // Clone the bitmap for each context
+  const bitmaps = await Promise.all(
+    contexts.map(() => createImageBitmap(bitmap))
+  );
+
+  // Close original bitmap to free memory
+  bitmap.close();
+
+  // Transfer clones to each context
+  contexts.forEach((context, index) => {
+    context.transferFromImageBitmap(bitmaps[index]);
+  });
 };
 
 export function createTargetCanvas(

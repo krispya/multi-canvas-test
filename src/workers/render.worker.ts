@@ -25,28 +25,24 @@ function initScene(canvas: OffscreenCanvas) {
   scene.add(light);
   scene.add(new THREE.AmbientLight(0x404040));
 
-  for (let i = 0; i < numCanvases; i++) {
-    const uniqueColor = new THREE.Color();
-    uniqueColor.setHSL(i / numCanvases, 1.0, 0.5);
-    const torusKnot = new THREE.TorusKnotGeometry(0.5, 0.1, 100, 16);
-    const material = new THREE.MeshStandardMaterial({
-      color: uniqueColor,
-      roughness: 0.5,
-      metalness: 0.5,
-    });
-    const object = new THREE.Mesh(torusKnot, material);
-    object.visible = false;
-    scene.add(object);
-    objects.push(object);
-  }
+  // Create object
+  const torusKnot = new THREE.TorusKnotGeometry(0.5, 0.1, 100, 16);
+  const material = new THREE.MeshStandardMaterial({
+    color: 0x646cff,
+    roughness: 0.5,
+    metalness: 0.5,
+  });
+  const object = new THREE.Mesh(torusKnot, material);
+  scene.add(object);
+  objects.push(object);
 }
 
-function render(contextIndex: number = 0) {
-  objects[contextIndex].visible = true;
-  objects[contextIndex].rotation.x += 0.01;
-  objects[contextIndex].rotation.y += 0.01;
+function render() {
+  objects[0].rotation.x += 0.01;
+  objects[0].rotation.y += 0.01;
+
   renderer.render(scene, camera);
-  objects[contextIndex].visible = false;
+  // requestAnimationFrame(render);
 }
 
 self.onmessage = (e) => {
@@ -58,14 +54,14 @@ self.onmessage = (e) => {
       numCanvases = data.numCanvases;
       initScene(canvas);
       break;
+    case "render":
+      render();
+      break;
     case "requestFrame":
       if (!canvas) return;
-      render(data.contextIndex);
+      render();
       const bitmap = canvas.transferToImageBitmap();
-      self.postMessage(
-        { bitmap, contextIndex: data.contextIndex },
-        { transfer: [bitmap] }
-      );
+      self.postMessage({ bitmap }, { transfer: [bitmap] });
       break;
   }
 };

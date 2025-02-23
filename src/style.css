@@ -32,14 +32,15 @@ body {
 }
 
 .canvas-container {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
+  display: grid;
   margin: 20px;
 }
 
 .canvas-wrapper {
   position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
 button {

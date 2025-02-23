@@ -105,8 +105,8 @@ self.onmessage = async (e) => {
           tileHeight, // source height
           0, // destination x
           0, // destination y
-          canvasSize, // destination width (stretch)
-          canvasSize // destination height (stretch)
+          context.canvas.width, // destination width (stretch)
+          context.canvas.height // destination height (stretch)
         );
       });
 

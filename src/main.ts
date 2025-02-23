@@ -4,7 +4,7 @@ import { createOffscreenSourceCanvas } from "./render/create-offscreen-source-ca
 import "./style.css";
 
 document.querySelector<HTMLDivElement>("#app")!.innerHTML = `
-  <h2>Rendering ${NUM_CANVASES} canvases that are ${CANVAS_SIZE} pixels each.</h2>
+  <h2>Rendering a single ${CANVAS_SIZE}x${CANVAS_SIZE} WebGL canvas that is split into ${NUM_CANVASES} destination 2D canvases.</h2>
   <div class="canvas-container" id="canvasContainer"></div>
 `;
 
@@ -56,19 +56,35 @@ export function createTargetCanvas(
 ) {
   const canvases = [];
 
+  // Calculate grid dimensions
+  const columns = Math.ceil(Math.sqrt(numCanvases));
+  const rows = Math.ceil(numCanvases / columns);
+
+  // Set container style to create grid
+  container.style.display = "grid";
+  container.style.gridTemplateColumns = `repeat(${columns}, auto)`;
+  container.style.gap = "3px";
+
   for (let i = 0; i < numCanvases; i++) {
     const wrapper = document.createElement("div");
     wrapper.className = "canvas-wrapper";
 
     const canvas = document.createElement("canvas");
-    canvas.width = size;
-    canvas.height = size;
-    canvas.style.width = `${size / window.devicePixelRatio}px`;
-    canvas.style.height = `${size / window.devicePixelRatio}px`;
+    // Each canvas should be sized to match its tile section
+    canvas.width = size / columns;
+    canvas.height = size / rows;
+
+    // Scale the display size while maintaining aspect ratio
+    const scale = Math.min(
+      size / columns / window.devicePixelRatio,
+      size / rows / window.devicePixelRatio
+    );
+
+    canvas.style.width = `${scale}px`;
+    canvas.style.height = `${scale}px`;
 
     wrapper.appendChild(canvas);
     container.appendChild(wrapper);
-
     canvases.push(canvas);
   }
 

@@ -8,7 +8,13 @@ document.querySelector<HTMLDivElement>("#app")!.innerHTML = `
   <div class="canvas-container" id="canvasContainer"></div>
 `;
 
-const sourceCanvas = createOffscreenSourceCanvas(CANVAS_SIZE);
+// Calculate tile dimensions
+const columns = Math.ceil(Math.sqrt(NUM_CANVASES));
+const rows = Math.ceil(NUM_CANVASES / columns);
+const tileWidth = Math.floor(CANVAS_SIZE / columns);
+const tileHeight = Math.floor(CANVAS_SIZE / rows);
+
+const sourceCanvas = createOffscreenSourceCanvas(tileWidth, tileHeight);
 
 // Create and setup worker
 const worker = new Worker(

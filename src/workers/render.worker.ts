@@ -7,21 +7,24 @@ let objects: THREE.Mesh[] = [];
 let numCanvases: number;
 let canvas: OffscreenCanvas;
 let targetCanvases: OffscreenCanvas[] = [];
-let contexts: OffscreenCanvasRenderingContext2D[] = [];
+let contexts: ImageBitmapRenderingContext[] = [];
 let canvasSize: number;
 
 function initScene(canvas: OffscreenCanvas) {
-  // Initialize renderer
+  const columns = Math.ceil(Math.sqrt(numCanvases));
+  const rows = Math.ceil(numCanvases / columns);
+  const tileWidth = Math.floor(canvasSize / columns);
+  const tileHeight = Math.floor(canvasSize / rows);
+
   renderer = new THREE.WebGLRenderer({
     canvas,
     antialias: true,
     alpha: true,
   });
-  renderer.setScissorTest(true); // Enable scissor testing
 
   // Setup scene
   scene = new THREE.Scene();
-  camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000);
+  camera = new THREE.PerspectiveCamera(75, tileWidth / tileHeight, 0.1, 1000);
   camera.position.z = 1;
   scene.background = new THREE.Color(0x222222);
 
@@ -30,6 +33,7 @@ function initScene(canvas: OffscreenCanvas) {
   scene.add(light);
   scene.add(new THREE.AmbientLight(0x404040));
 
+  // Setup objects and contexts
   for (let i = 0; i < numCanvases; i++) {
     const uniqueColor = new THREE.Color();
     uniqueColor.setHSL(i / numCanvases, 1.0, 0.5);
@@ -45,68 +49,35 @@ function initScene(canvas: OffscreenCanvas) {
   }
 
   targetCanvases.forEach((c) => {
-    const context = c.getContext("2d", {
-      alpha: false,
-      desynchronized: true,
-    });
+    const context = c.getContext("bitmaprenderer");
     if (!context) {
-      throw new Error("Failed to create 2D context");
+      throw new Error("Failed to create BitmapRenderer context");
     }
     contexts.push(context);
   });
 }
 
 function render() {
-  const columns = Math.ceil(Math.sqrt(numCanvases));
-  const rows = Math.ceil(numCanvases / columns);
-  const tileWidth = canvas.width / columns;
-  const tileHeight = canvas.height / rows;
-
   // Update all object rotations
   objects.forEach((object) => {
     object.rotation.x += 0.01;
     object.rotation.y += 0.01;
   });
 
-  // Render each object in its own scissored region
+  // Render each object individually
   objects.forEach((object, index) => {
-    const col = index % columns;
-    const row = Math.floor(index / columns);
-
-    // Set scissor to this tile's region
-    const x = col * tileWidth;
-    const y = canvas.height - (row + 1) * tileHeight; // WebGL Y is bottom-to-top
-    renderer.setScissor(x, y, tileWidth, tileHeight);
-    renderer.setViewport(x, y, tileWidth, tileHeight);
-
-    // Render just this object
+    // Hide all objects
+    objects.forEach((obj) => (obj.visible = false));
+    // Show only current object
     object.visible = true;
+
+    // Render the scene
     renderer.render(scene, camera);
-    object.visible = false;
+
+    // Transfer to the corresponding context
+    const bitmap = canvas.transferToImageBitmap();
+    contexts[index].transferFromImageBitmap(bitmap);
   });
-
-  // Create bitmap and distribute to canvases
-  const bitmap = canvas.transferToImageBitmap();
-
-  // Draw appropriate section to each canvas
-  contexts.forEach((context, index) => {
-    const col = index % columns;
-    const row = Math.floor(index / columns);
-
-    context.drawImage(
-      bitmap,
-      col * tileWidth,
-      row * tileHeight,
-      tileWidth,
-      tileHeight,
-      0,
-      0,
-      context.canvas.width,
-      context.canvas.height
-    );
-  });
-
-  bitmap.close();
 }
 
 self.onmessage = async (e) => {

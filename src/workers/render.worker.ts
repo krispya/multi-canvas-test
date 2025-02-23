@@ -17,6 +17,7 @@ function initScene(canvas: OffscreenCanvas) {
     antialias: true,
     alpha: true,
   });
+  renderer.setScissorTest(true); // Enable scissor testing
 
   // Setup scene
   scene = new THREE.Scene();
@@ -39,7 +40,6 @@ function initScene(canvas: OffscreenCanvas) {
       metalness: 0.5,
     });
     const object = new THREE.Mesh(torusKnot, material);
-    object.visible = false;
     scene.add(object);
     objects.push(object);
   }
@@ -57,11 +57,56 @@ function initScene(canvas: OffscreenCanvas) {
 }
 
 function render() {
-  objects[0].visible = true;
-  objects[0].rotation.x += 0.01;
-  objects[0].rotation.y += 0.01;
-  renderer.render(scene, camera);
-  objects[0].visible = false;
+  const columns = Math.ceil(Math.sqrt(numCanvases));
+  const rows = Math.ceil(numCanvases / columns);
+  const tileWidth = canvas.width / columns;
+  const tileHeight = canvas.height / rows;
+
+  // Update all object rotations
+  objects.forEach((object) => {
+    object.rotation.x += 0.01;
+    object.rotation.y += 0.01;
+  });
+
+  // Render each object in its own scissored region
+  objects.forEach((object, index) => {
+    const col = index % columns;
+    const row = Math.floor(index / columns);
+
+    // Set scissor to this tile's region
+    const x = col * tileWidth;
+    const y = canvas.height - (row + 1) * tileHeight; // WebGL Y is bottom-to-top
+    renderer.setScissor(x, y, tileWidth, tileHeight);
+    renderer.setViewport(x, y, tileWidth, tileHeight);
+
+    // Render just this object
+    object.visible = true;
+    renderer.render(scene, camera);
+    object.visible = false;
+  });
+
+  // Create bitmap and distribute to canvases
+  const bitmap = canvas.transferToImageBitmap();
+
+  // Draw appropriate section to each canvas
+  contexts.forEach((context, index) => {
+    const col = index % columns;
+    const row = Math.floor(index / columns);
+
+    context.drawImage(
+      bitmap,
+      col * tileWidth,
+      row * tileHeight,
+      tileWidth,
+      tileHeight,
+      0,
+      0,
+      context.canvas.width,
+      context.canvas.height
+    );
+  });
+
+  bitmap.close();
 }
 
 self.onmessage = async (e) => {
@@ -78,40 +123,6 @@ self.onmessage = async (e) => {
     case "requestFrame":
       if (!canvas) return;
       render();
-
-      // Create one bitmap and clone it for each context
-      const bitmap = canvas.transferToImageBitmap();
-
-      // Calculate grid dimensions based on number of canvases
-      const columns = Math.ceil(Math.sqrt(numCanvases));
-      const rows = Math.ceil(numCanvases / columns);
-      const tileWidth = canvasSize / columns;
-      const tileHeight = canvasSize / rows;
-
-      // Draw a different tile section to each canvas
-      contexts.forEach((context, index) => {
-        context.clearRect(0, 0, canvasSize, canvasSize);
-
-        // Calculate grid position for this canvas
-        const col = index % columns;
-        const row = Math.floor(index / columns);
-
-        // Draw specific tile section stretched to fill canvas
-        context.drawImage(
-          bitmap,
-          col * tileWidth, // source x
-          row * tileHeight, // source y
-          tileWidth, // source width
-          tileHeight, // source height
-          0, // destination x
-          0, // destination y
-          context.canvas.width, // destination width (stretch)
-          context.canvas.height // destination height (stretch)
-        );
-      });
-
-      bitmap.close();
-
       break;
   }
 };

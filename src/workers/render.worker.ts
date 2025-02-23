@@ -7,7 +7,8 @@ let objects: THREE.Mesh[] = [];
 let numCanvases: number;
 let canvas: OffscreenCanvas;
 let targetCanvases: OffscreenCanvas[] = [];
-let contexts: ImageBitmapRenderingContext[] = [];
+let contexts: OffscreenCanvasRenderingContext2D[] = [];
+let canvasSize: number;
 
 function initScene(canvas: OffscreenCanvas) {
   // Initialize renderer
@@ -44,7 +45,7 @@ function initScene(canvas: OffscreenCanvas) {
   }
 
   targetCanvases.forEach((c) => {
-    const context = c.getContext("bitmaprenderer", {
+    const context = c.getContext("2d", {
       alpha: false,
       desynchronized: true,
     });
@@ -71,6 +72,7 @@ self.onmessage = async (e) => {
       canvas = data.canvas;
       numCanvases = data.numCanvases;
       targetCanvases = data.targetCanvases;
+      canvasSize = data.size;
       initScene(canvas);
       break;
     case "requestFrame":
@@ -78,15 +80,38 @@ self.onmessage = async (e) => {
       render();
 
       // Create one bitmap and clone it for each context
-      const sourceBitmap = canvas.transferToImageBitmap();
-      const transferPromises = contexts.map(async (context) => {
-        const clonedBitmap = await createImageBitmap(sourceBitmap);
-        context.transferFromImageBitmap(clonedBitmap);
+      const bitmap = canvas.transferToImageBitmap();
+
+      // Calculate grid dimensions based on number of canvases
+      const columns = Math.ceil(Math.sqrt(numCanvases));
+      const rows = Math.ceil(numCanvases / columns);
+      const tileWidth = canvasSize / columns;
+      const tileHeight = canvasSize / rows;
+
+      // Draw a different tile section to each canvas
+      contexts.forEach((context, index) => {
+        context.clearRect(0, 0, canvasSize, canvasSize);
+
+        // Calculate grid position for this canvas
+        const col = index % columns;
+        const row = Math.floor(index / columns);
+
+        // Draw specific tile section stretched to fill canvas
+        context.drawImage(
+          bitmap,
+          col * tileWidth, // source x
+          row * tileHeight, // source y
+          tileWidth, // source width
+          tileHeight, // source height
+          0, // destination x
+          0, // destination y
+          canvasSize, // destination width (stretch)
+          canvasSize // destination height (stretch)
+        );
       });
 
-      // Wait for all transfers to complete
-      await Promise.all(transferPromises);
-      sourceBitmap.close();
+      bitmap.close();
+
       break;
   }
 };

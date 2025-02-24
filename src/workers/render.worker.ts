@@ -8,7 +8,6 @@ let numCanvases: number;
 let canvas: OffscreenCanvas;
 let targetCanvases: OffscreenCanvas[] = [];
 let contexts: OffscreenCanvasRenderingContext2D[] = [];
-let canvasSize: number;
 
 function initScene(canvas: OffscreenCanvas) {
   // Initialize renderer
@@ -17,7 +16,7 @@ function initScene(canvas: OffscreenCanvas) {
     antialias: true,
     alpha: true,
   });
-  renderer.setScissorTest(true); // Enable scissor testing
+  renderer.setScissorTest(true);
 
   // Setup scene
   scene = new THREE.Scene();
@@ -68,16 +67,16 @@ function render() {
     object.rotation.y += 0.01;
   });
 
-  // Render each object in its own scissored region
+  // Render each object in its own viewport region
   objects.forEach((object, index) => {
     const col = index % columns;
     const row = Math.floor(index / columns);
 
-    // Set scissor to this tile's region
+    // Set viewport to this tile's region
     const x = col * tileWidth;
     const y = canvas.height - (row + 1) * tileHeight; // WebGL Y is bottom-to-top
-    renderer.setScissor(x, y, tileWidth, tileHeight);
     renderer.setViewport(x, y, tileWidth, tileHeight);
+    renderer.setScissor(x, y, tileWidth, tileHeight);
 
     // Render just this object
     object.visible = true;
@@ -117,7 +116,6 @@ self.onmessage = async (e) => {
       canvas = data.canvas;
       numCanvases = data.numCanvases;
       targetCanvases = data.targetCanvases;
-      canvasSize = data.size;
       initScene(canvas);
       break;
     case "requestFrame":
